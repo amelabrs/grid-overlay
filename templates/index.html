@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grid Overlay</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f4f8;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow: 0 4px 24px rgba(0,0,0,.1);
+      padding: 2rem 1.5rem;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      color: #1a1a2e;
+      margin-bottom: .25rem;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      font-size: .9rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .flash {
+      background: #fff0f0;
+      border: 1px solid #fbb;
+      color: #c00;
+      border-radius: .5rem;
+      padding: .75rem 1rem;
+      font-size: .875rem;
+      margin-bottom: 1.25rem;
+    }
+
+    /* drop zone */
+    .drop-zone {
+      border: 2px dashed #c0c0d0;
+      border-radius: .75rem;
+      padding: 2rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      margin-bottom: 1.25rem;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #e63946;
+      background: #fff5f5;
+    }
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .drop-zone .icon {
+      font-size: 2.5rem;
+      margin-bottom: .5rem;
+      display: block;
+    }
+    .drop-zone .label {
+      font-size: .95rem;
+      color: #444;
+      font-weight: 500;
+    }
+    .drop-zone .hint {
+      font-size: .8rem;
+      color: #888;
+      margin-top: .25rem;
+    }
+    .drop-zone .chosen {
+      margin-top: .5rem;
+      font-size: .85rem;
+      color: #e63946;
+      font-weight: 600;
+      display: none;
+    }
+
+    /* preview */
+    #preview {
+      display: none;
+      width: 100%;
+      max-height: 220px;
+      object-fit: contain;
+      border-radius: .5rem;
+      margin-bottom: 1.25rem;
+      border: 1px solid #eee;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: .9rem;
+      background: #e63946;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: .75rem;
+      cursor: pointer;
+      transition: background .2s, transform .1s;
+      letter-spacing: .02em;
+    }
+    button[type="submit"]:hover { background: #c1121f; }
+    button[type="submit"]:active { transform: scale(.97); }
+    button[type="submit"]:disabled {
+      background: #ccc;
+      cursor: default;
+      transform: none;
+    }
+
+    .info {
+      margin-top: 1.25rem;
+      font-size: .8rem;
+      color: #aaa;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Grid Overlay</h1>
+    <p class="subtitle">Add a 4&times;4 drawing grid to any photo</p>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="flash">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="/process" enctype="multipart/form-data" id="form">
+      <div class="drop-zone" id="dropZone">
+        <input type="file" name="image" id="fileInput" accept="image/*" required />
+        <span class="icon">🖼️</span>
+        <div class="label">Tap to choose a photo</div>
+        <div class="hint">PNG · JPG · BMP · WEBP · GIF &mdash; max 20 MB</div>
+        <div class="chosen" id="chosenName"></div>
+      </div>
+
+      <img id="preview" alt="preview" />
+
+      <button type="submit" id="submitBtn" disabled>Add Grid &amp; Download</button>
+    </form>
+
+    <p class="info">Your photo is processed instantly and never stored.</p>
+  </div>
+
+  <script>
+    const input = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const chosenName = document.getElementById('chosenName');
+    const preview = document.getElementById('preview');
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.getElementById('form');
+
+    function handleFile(file) {
+      if (!file) return;
+      chosenName.textContent = file.name;
+      chosenName.style.display = 'block';
+      submitBtn.disabled = false;
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    input.addEventListener('change', () => handleFile(input.files[0]));
+
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        handleFile(file);
+      }
+    });
+
+    form.addEventListener('submit', () => {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Processing…';
+    });
+  </script>
+</body>
+</html>
